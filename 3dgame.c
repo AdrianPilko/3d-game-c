@@ -1,9 +1,14 @@
-// from starter code released on github by 3dsage - and them modified by 
+// from starter code released on github by 3dsage - and then modified by 
 // Adrian Pilkington 2025 (using same MIT license)
-// this is myu attempts to create a 3d game engine using 3d sages starter code
+
+// this is my attempts to create a 3d game engine using 3d sages starter code
 // and the video https://www.youtube.com/watch?v=huMO4VQEwPc&t=56s
-// please support 3d sage and his youtube channel as it is an excellent collention
+// please support 3dSage and his youtube channel as it is an excellent collention
 // of videos and work!!!
+
+// so far I've been able to follow the first tutorial video and update the code 
+// I didn't just copy it but followed the tutorial and wrote it. some bits I 
+// don't fully understand yet
 
 //------------------------------------------------------------------------------
 //--------------------------Code By: 3DSage-------------------------------------
