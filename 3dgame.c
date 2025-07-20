@@ -45,6 +45,10 @@
 #define GLSH       (SH*pixelScale)          //OpenGL window height
 
 #define DEGREES_IN_360 360
+
+const int numSect = 4;
+const int numWalls = 16;
+
 //------------------------------------------------------------------------------
 typedef struct 
 {
@@ -66,12 +70,73 @@ typedef struct mathPrecalcd
 
 mathPrecalcd M;
 
-typedef struct playerAttributes
+typedef struct playerAttributes_s
 {
 	int x,y,z; // coordinates
 	int angle;   // angle
 	int look;	 // up down 	
-} playerAttributes; playerAttributes P;
+} playerAttributes_t; playerAttributes_t P;
+
+// wall structure and storage
+
+typedef struct walls_s
+{
+	int x1,y1; //bottom line point 1
+	int x2,y2; // bottom line point 2
+	int colour;		
+} walls_t;
+walls_t W[30];
+
+typedef struct sector_s
+{
+	int ws,we; // wall number atsrt (ws) end (we)
+	int z1,z2; // height of bottom and top
+	//int x,y; // centre position for sector
+	int d; // add y distance too sort draw ordering		
+	int c1,c2;  // bottom and top colour
+	int surf[SW]; // hols points for surfaces
+	int surface;
+} sector_t;
+sector_t S[30];
+
+// hard code these until we have a level / game editor
+int sectorConfig[] = 
+// wall start, wall end, z1 height, z2 height, bottom colour, top colour
+{
+	0,	4, 	0,	40,	2,	3,
+	4,	8, 	0,	40,	4,	5,
+	8,	12,	0,	40,	6,	7,
+	12,	16,	0,	40,	0,	1
+};
+int wallConfig[] = 
+// x1, y1,x2,y2,colour
+{
+ 	0,0,32,0,0,
+ 	32,0,32,32,1,
+ 	32,32,0,32,0,
+ 	0,32,0,0,1,
+ 	
+ 	64,0,96,0,2,
+ 	96,0,96,32,3,
+ 	96,32,64,32,2,
+ 	64,32,64,0,3,
+ 	
+ 	64,64,96,64,4,
+ 	96,64,96,96,5,
+ 	96,96,64,96,4,
+ 	64,96,64,64,5,
+ 	
+ 	0,64,32,64,6,
+ 	32,64,32,96,7,
+ 	32,96,0,96,6,
+ 	0,96,0,64,7,
+};
+
+int distance(int x1, int y1, int x2, int y2)
+{
+	return (int)sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1));
+}
+
 	
 //------------------------------------------------------------------------------
 
@@ -119,7 +184,19 @@ void clearBackground()
  }	
 }
 
-void drawWall(int x1, int x2, int b1, int b2, int t1, int t2)
+void clipBehindPlayer(int *x1, int *y1, int * z1,
+					int x2, int y2, int z2)
+{
+	float da = *y1;
+	float db = y2;
+	float d=da-db; if (d==0) {d = 1;}
+	float s = da / (da-db);
+	*x1 = *x1 + s*(x2-(*x1));
+	*y1 = *y1 + s*(y2-(*y1)); if (*y1==0){*y1 = 1;}
+	*z1 = *z1 + s*(z2-(*z1));
+}
+
+void drawWall(int x1, int x2, int b1, int b2, int t1, int t2,int colour,int s)
 {
 	int x,y;
 	int dyb = b2 - b1;
@@ -130,60 +207,158 @@ void drawWall(int x1, int x2, int b1, int b2, int t1, int t2)
 		dx = 1;
 	}
 	int xs = x1;
+	// clip x and y so we don't draw behind or under
+	if (x1 < 1) {x1 = 1;}
+	if (x2 < 1) {x2 = 1;}
+	if (x1 > SW-1) {x1=SW-1;}
+	if (x2 > SW-1) {x2=SW-1;}
+	
 	
 	for (x = x1; x < x2; x++)
 	{
 		int y1 = dyb * (x-xs+0.5) / dx+b1; // y bottom point
 		int y2 = dyt * (x-xs+0.5) / dx+t1; // y top point
+
+		if (y1 < 1) {y1 = 1;}
+		if (y2 < 1) {y2 = 1;}
+		if (y1 > SH-1) {y1=SH-1;}
+		if (y2 > SH-1) {y2 =SH-1;}
+		// check surfaces
+		if (S[s].surface==1) {S[s].surf[x]=y1;continue;} // save bottom points
+		if (S[s].surface==2) {S[s].surf[x]=y2;continue;} // save top points
+		if (S[s].surface==-1)		
+		{
+			for (y=S[s].surf[x];y <y1;y++) 
+			{
+				pixel(x,y,S[s].c1); // draw bottom
+			}			
+		}
+		if (S[s].surface==-2)
+		{
+			for (y=y2; y < S[s].surf[x];y++) 
+			{
+				pixel(x,y,S[s].c2); // draw top
+			}					
+		}		
 		for (y = y1; y < y2; y++)
 		{
-			pixel(x,y,0);
+			pixel(x,y,colour);
 		}
 	}
 }
 
 
 void draw3D()
-{
+{	
+	int s, w;  // loop counts for walls and sectors	
 	int wall_x[4];
 	int wall_y[4];
 	int wall_z[4];
 	float COS=M.cosine[P.angle];
 	float SIN=M.sine[P.angle];
+	
+	// sort the walls in order for drawing using bubble sort
+	for (s = 0; s < numSect-1; s++)
+	{
+		for (w = 0; w < numSect-s-1;w++) 
+		{
+			if (S[w].d < S[w+1].d)
+			{
+				sector_t swapTemp=S[w];
+				S[w]=S[w+1];
+				S[w+1] = swapTemp;
+			}
+		}
+	}
 	// create the points for wall based on players x and the angle
 	// its all based onthe "map"/wolrd moving not the player hence the 
-	// 40 - P.x etc
-	int x1 = 40 - P.x;	
-	int y1 = 10 - P.y;
-	int x2 = 40 - P.x;	
-	int y2 = 290 - P.y;	
-	// world x position
-	wall_x[0] = x1 * COS - y1 * SIN;
-	wall_x[1] = x2 * COS - y2 * SIN;
-	wall_x[2] = wall_x[0];
-	wall_x[3] = wall_x[1];
-	// world y position
-	wall_y[0] = y1 * COS + x1 * SIN;
-	wall_y[1] = y2 * COS + x2 * SIN;
-	wall_y[2] = wall_y[0];
-	wall_y[3] = wall_y[1];	
-	// world z height
-	wall_z[0] = 0 - P.z + ((P.look* wall_y[0])/32.0);
-	wall_z[1] = 0 - P.z + ((P.look* wall_y[1])/32.0);
-	wall_z[2] = wall_z[0] + 40;
-	wall_z[3] = wall_z[1] + 40;
-	// screen x and y position
-	// include offset from origin to center of screen so perspective is fixed 
-	// there not bottom left
-	wall_x[0] = wall_x[0] * 200 / wall_y[0] + SW2;	wall_y[0] = wall_z[0] * 200 / wall_y[0] + SH2;
-	wall_x[1] = wall_x[1] * 200 / wall_y[1] + SW2;	wall_y[1] = wall_z[1] * 200 / wall_y[1] + SH2;	
-	wall_x[2] = wall_x[2] * 200 / wall_y[2] + SW2;	wall_y[2] = wall_z[2] * 200 / wall_y[2] + SH2;
-	wall_x[3] = wall_x[3] * 200 / wall_y[3] + SW2;	wall_y[3] = wall_z[3] * 200 / wall_y[3] + SH2;	
+	
+	
+	// draw sectors
+	for (s = 0; s < numSect; s++)
+	{		
+		S[s].d = 0;		
+		if (P.z < S[s].z1) 			
+		{
+			S[s].surface = 1;   // bottom surface should be drawn
+		}
+		else if (P.z > S[s].z2) 
+		{
+			S[s].surface = 2;	// top surface is visible
+		}
+		else
+		{
+			//neither surface visible
+			S[s].surface = 0;
+		}
 		
-	//if (wall_x[0] > 0 && wall_x[0] < SW && wall_y[0]> 0 && wall_y[0] < SH) { pixel(wall_x[0], wall_y[0],0); }
-	//if (wall_x[1] > 0 && wall_x[1] < SW && wall_y[1]> 0 && wall_y[1] < SH) { pixel(wall_x[1], wall_y[1],0);	}
-	drawWall(wall_x[0], wall_x[1], wall_y[0], wall_y[1], wall_y[2],wall_y[3]);
+		int frontBackLoop = 0;
+		for (frontBackLoop = 0; frontBackLoop < 2; frontBackLoop++)
+		{
 		
+			for (w=S[s].ws;w <S[s].we;w++)
+			{
+			
+				int x1 = W[w].x1 - P.x;	int y1 = W[w].y1 - P.y;
+				int x2 = W[w].x2 - P.x;	int y2 = W[w].y2 - P.y;
+				if (frontBackLoop == 0)
+				{				
+					int swapTemp = x1; x1=x2; x2=swapTemp; 
+					swapTemp=y1;y1=y2;y2=swapTemp;
+				}
+				// world x position
+				wall_x[0] = x1 * COS - y1 * SIN;
+				wall_x[1] = x2 * COS - y2 * SIN;
+				wall_x[2] = wall_x[0];
+				wall_x[3] = wall_x[1];
+				// world y position
+				wall_y[0] = y1 * COS + x1 * SIN;
+				wall_y[1] = y2 * COS + x2 * SIN;
+				wall_y[2] = wall_y[0];
+				wall_y[3] = wall_y[1];	
+				
+				S[s].d+=distance(0,0,(wall_x[0]+wall_x[1])/2, (wall_y[0]+wall_y[1])/2);
+				
+				// world z height
+				wall_z[0] = S[s].z1 - P.z + ((P.look* wall_y[0])/32.0);
+				wall_z[1] = S[s].z1 - P.z + ((P.look* wall_y[1])/32.0);
+				wall_z[2] = wall_z[0] + S[s].z2;
+				wall_z[3] = wall_z[1] + S[s].z2;
+				
+				if (wall_z[0] < 1 && wall_y[1] < 1) 
+				{
+					//wall behind, don't draw!!
+					continue; // don't return due to drawing all the other sectos ands walls - but move on to next
+				}	
+				if (wall_y[0] < 1)
+				{
+					clipBehindPlayer(&wall_x[0],&wall_y[0],&wall_z[0],wall_x[1],wall_y[1],wall_z[1]); // bottom line
+					clipBehindPlayer(&wall_x[2],&wall_y[2],&wall_z[2],wall_x[3],wall_y[3],wall_z[3]); // top line
+				}
+			
+				if (wall_y[1] < 1)
+				{
+					clipBehindPlayer(&wall_x[1],&wall_y[1],&wall_z[1],wall_x[0],wall_y[0],wall_z[0]); // bottom line
+					clipBehindPlayer(&wall_x[3],&wall_y[3],&wall_z[3],wall_x[2],wall_y[2],wall_z[2]); // top line
+				}	
+				// screen x and y position
+				// include offset from origin to center of screen so perspective is fixed 
+				// there not bottom left
+				wall_x[0] = wall_x[0] * 200 / wall_y[0] + SW2;	wall_y[0] = wall_z[0] * 200 / wall_y[0] + SH2;
+				wall_x[1] = wall_x[1] * 200 / wall_y[1] + SW2;	wall_y[1] = wall_z[1] * 200 / wall_y[1] + SH2;	
+				wall_x[2] = wall_x[2] * 200 / wall_y[2] + SW2;	wall_y[2] = wall_z[2] * 200 / wall_y[2] + SH2;
+				wall_x[3] = wall_x[3] * 200 / wall_y[3] + SW2;	wall_y[3] = wall_z[3] * 200 / wall_y[3] + SH2;	
+					
+				//if (wall_x[0] > 0 && wall_x[0] < SW && wall_y[0]> 0 && wall_y[0] < SH) { pixel(wall_x[0], wall_y[0],0); }
+				//if (wall_x[1] > 0 && wall_x[1] < SW && wall_y[1]> 0 && wall_y[1] < SH) { pixel(wall_x[1], wall_y[1],0);	}
+				drawWall(wall_x[0], wall_x[1], wall_y[0], 
+				         wall_y[1], wall_y[2],wall_y[3],
+						 W[w].colour,s);
+			}
+			S[s].d /= (S[s].we-S[s].ws);
+			S[s].surface *= -1;
+		}
+	}
 }
 
 void display() 
@@ -234,11 +409,31 @@ void init()
 		M.cosine[degreeIndex] = cos(degreeIndex / 180.0f * M_PI);
 	}
 	// initialise the player attributes
-	P.x =60;
-	P.y =-120;
-	P.z = 30;
+	P.x =70;
+	P.y =-110;
+	P.z = 20;
 	P.angle = 0;
 	P.look = 0;
+	int s,w,v1=0,v2=0;
+	for (s=0; s < numSect;s++)
+	{
+		S[s].ws=sectorConfig[v1+0];
+		S[s].we=sectorConfig[v1+1];
+		S[s].z1=sectorConfig[v1+2];
+		S[s].z2=sectorConfig[v1+3] - sectorConfig[v1+2];
+		S[s].c1 = sectorConfig[v1+4];
+		S[s].c2 = sectorConfig[v1+5];	
+		v1+=6;
+		for (w =S[s].ws; w < S[s].we;w++)
+		{
+			W[w].x1 =wallConfig[v2+0];
+			W[w].y1 =wallConfig[v2+1];
+			W[w].x2 =wallConfig[v2+2];
+			W[w].y2 =wallConfig[v2+3];
+			W[w].colour =wallConfig[v2+4];
+			v2+=5;
+		}		
+	}
 }
 
 int main(int argc, char* argv[])
