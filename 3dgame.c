@@ -178,18 +178,9 @@ void load()
 	
 //------------------------------------------------------------------------------
 
-void pixel(int x,int y, int c)                  //draw a pixel at x/y with rgb
-{int rgb[3];
- if(c==0){ rgb[0]=255; rgb[1]=255; rgb[2]=  0;} //Yellow	
- if(c==1){ rgb[0]=160; rgb[1]=160; rgb[2]=  0;} //Yellow darker	
- if(c==2){ rgb[0]=  0; rgb[1]=255; rgb[2]=  0;} //Green	
- if(c==3){ rgb[0]=  0; rgb[1]=160; rgb[2]=  0;} //Green darker	
- if(c==4){ rgb[0]=  0; rgb[1]=255; rgb[2]=255;} //Cyan	
- if(c==5){ rgb[0]=  0; rgb[1]=160; rgb[2]=160;} //Cyan darker
- if(c==6){ rgb[0]=160; rgb[1]=100; rgb[2]=  0;} //brown	
- if(c==7){ rgb[0]=110; rgb[1]= 50; rgb[2]=  0;} //brown darker
- if(c==8){ rgb[0]=  0; rgb[1]= 60; rgb[2]=130;} //background 
- glColor3ub(rgb[0],rgb[1],rgb[2]); 
+void drawPixel(int x,int y, int r,int g, int b)                  //draw a pixel at x/y with rgb
+{
+ glColor3ub(r,g,b); 
  glBegin(GL_POINTS);
  glVertex2i(x*pixelScale+2,y*pixelScale+2);
  glEnd();
@@ -218,7 +209,7 @@ void clearBackground()
 {int x,y;
  for(y=0;y<SH;y++)
  { 
-  for(x=0;x<SW;x++){ pixel(x,y,8);} //clear background color
+  for(x=0;x<SW;x++){ drawPixel(x,y,0,60,130);} //clear background color
  }	
 }
 
@@ -234,8 +225,32 @@ void clipBehindPlayer(int *x1, int *y1, int * z1,
 	*z1 = *z1 + s*(z2-(*z1));
 }
 
+void testTextures()
+{
+	int x,y,t;
+	t = 0;
+	for (y=0;y < Textures[t].h;y++)
+	{
+		for (x=0;x < Textures[t].w;x++)
+		{
+			int pixel = (Textures[t].h-y-1)*3*Textures[t].w + x*3;
+			int r = Textures[t].name[pixel];
+			int g = Textures[t].name[pixel+1];
+			int b = Textures[t].name[pixel+2];
+			drawPixel(x,y,r,g,b);
+		}
+	}
+	
+}
+
 void drawWall(int x1, int x2, int b1, int b2, int t1, int t2,int s, int w, int frontBack)
 {
+	// wall texture
+	int wt=W[w].wt;
+	float ht = 0;
+	float ht_step = (float)Textures[wt].w/(float)(x2-x1);
+
+	
 	int x,y;
 	int dyb = b2 - b1;
 	int dyt = t2 - t1;
@@ -246,7 +261,7 @@ void drawWall(int x1, int x2, int b1, int b2, int t1, int t2,int s, int w, int f
 	}
 	int xs = x1;
 	// clip x and y so we don't draw behind or under
-	if (x1 < 0) {x1 = 0;}
+	if (x1 < 0) {ht-=ht_step*x1; x1 = 0;}
 	if (x2 < 0) {x2 = 0;}
 	if (x1 > SW) {x1=SW;}
 	if (x2 > SW) {x2=SW;}
@@ -256,8 +271,12 @@ void drawWall(int x1, int x2, int b1, int b2, int t1, int t2,int s, int w, int f
 	{
 		int y1 = dyb * (x-xs+0.5) / dx+b1; // y bottom point
 		int y2 = dyt * (x-xs+0.5) / dx+t1; // y top point
-
-		if (y1 < 0) {y1 = 0;}
+		
+		// vertical wall texture
+		float vt = 0;
+		float vt_step = (float)Textures[wt].h/(float)(y2-y1);
+			
+		if (y1 < 0) {vt-=vt_step*y1; y1 = 0;}
 		if (y2 < 0) {y2 = 0;}
 		if (y1 > SH) {y1=SH;}
 		if (y2 > SH) {y2 =SH;}
@@ -267,14 +286,25 @@ void drawWall(int x1, int x2, int b1, int b2, int t1, int t2,int s, int w, int f
 		{
 			if (S[s].surface == 1) {S[s].surf[x]=y1;} // bottom surface save top row
 			if (S[s].surface == 2) {S[s].surf[x]=y2;} // top surface save row				
-			for (y = y1; y < y2; y++) {	pixel(x,y,0);}			
+			//for (y = y1; y < y2; y++) {	drawPixel(x,y,0,255,0);}			
+			
+			for (y=y1;y <y2;y++)
+			{
+				int pixel =(int)(Textures[wt].h-vt-1)*3*Textures[wt].w + (int)ht*3;
+				int r = Textures[wt].name[pixel];
+				int g = Textures[wt].name[pixel+1];
+				int b = Textures[wt].name[pixel+2];
+				drawPixel(x,y,r,g,b);
+				vt+= vt_step;
+			}
+			ht+=ht_step;
 		}
 		// draw back walls
 		if (frontBack == 1)
 		{
 			if (S[s].surface == 1) {y2=S[s].surf[x];} // bottom surface top row			
 			if (S[s].surface == 2) {y1 =S[s].surf[x];} // bottom surface top row
-			for (y = y1; y < y2; y++){pixel(x,y,2);}			
+			for (y = y1; y < y2; y++){drawPixel(x,y,255,0,0);}			
 		}				
 	}
 }
@@ -408,7 +438,9 @@ void display()
 {int x,y;
  if(T.fr1-T.fr2>=50)                        //only draw 20 frames/second
  { 
+ 
   clearBackground();
+  //testTextures();
   movePlayer();
   draw3D(); 
 
@@ -452,6 +484,27 @@ void init()
 		M.sine[degreeIndex]	= sin(degreeIndex / 180.0f * M_PI);
 		M.cosine[degreeIndex] = cos(degreeIndex / 180.0f * M_PI);
 	}
+		
+	 Textures[ 0].name=T_00; Textures[ 0].h=T_00_HEIGHT; Textures[ 0].w=T_00_WIDTH; 
+	 Textures[ 1].name=T_01; Textures[ 1].h=T_01_HEIGHT; Textures[ 1].w=T_01_WIDTH;
+	 Textures[ 2].name=T_02; Textures[ 2].h=T_02_HEIGHT; Textures[ 2].w=T_02_WIDTH;
+	 Textures[ 3].name=T_03; Textures[ 3].h=T_03_HEIGHT; Textures[ 3].w=T_03_WIDTH;
+	 Textures[ 4].name=T_04; Textures[ 4].h=T_04_HEIGHT; Textures[ 4].w=T_04_WIDTH;
+	 Textures[ 5].name=T_05; Textures[ 5].h=T_05_HEIGHT; Textures[ 5].w=T_05_WIDTH;
+	 Textures[ 6].name=T_06; Textures[ 6].h=T_06_HEIGHT; Textures[ 6].w=T_06_WIDTH;
+	 Textures[ 7].name=T_07; Textures[ 7].h=T_07_HEIGHT; Textures[ 7].w=T_07_WIDTH;
+	 Textures[ 8].name=T_08; Textures[ 8].h=T_08_HEIGHT; Textures[ 8].w=T_08_WIDTH;
+	 Textures[ 9].name=T_09; Textures[ 9].h=T_09_HEIGHT; Textures[ 9].w=T_09_WIDTH;
+	 Textures[10].name=T_10; Textures[10].h=T_10_HEIGHT; Textures[10].w=T_10_WIDTH;
+	 Textures[11].name=T_11; Textures[11].h=T_11_HEIGHT; Textures[11].w=T_11_WIDTH;
+	 Textures[12].name=T_12; Textures[12].h=T_12_HEIGHT; Textures[12].w=T_12_WIDTH;
+	 Textures[13].name=T_13; Textures[13].h=T_13_HEIGHT; Textures[13].w=T_13_WIDTH;
+	 Textures[14].name=T_14; Textures[14].h=T_14_HEIGHT; Textures[14].w=T_14_WIDTH;
+	 Textures[15].name=T_15; Textures[15].h=T_15_HEIGHT; Textures[15].w=T_15_WIDTH;
+	 Textures[16].name=T_16; Textures[16].h=T_16_HEIGHT; Textures[16].w=T_16_WIDTH;
+	 Textures[17].name=T_17; Textures[17].h=T_17_HEIGHT; Textures[17].w=T_17_WIDTH;
+	 Textures[18].name=T_18; Textures[18].h=T_18_HEIGHT; Textures[18].w=T_18_WIDTH;
+	 Textures[19].name=T_19; Textures[19].h=T_19_HEIGHT; Textures[19].w=T_19_WIDTH;
 	load();
 }
 
