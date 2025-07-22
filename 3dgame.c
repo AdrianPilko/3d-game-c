@@ -361,9 +361,56 @@ void drawWall(int x1, int x2, int b1, int b2, int t1, int t2,int s, int w, int f
 		// draw back walls
 		if (frontBack == 1)
 		{
-			if (S[s].surface == 1) {y2=S[s].surf[x];} // bottom surface top row			
-			if (S[s].surface == 2) {y1 =S[s].surf[x];} // bottom surface top row
-			for (y = y1; y < y2; y++){drawPixel(x,y,255,0,0);}			
+
+	
+			int xo = SW / 2; // x offset
+			int yo = SH / 2; // y offset
+			float feildOfView =200.0;
+			int x2 = x - xo;
+			int wo;
+			float tile = S[s].ss * 7;
+
+			if (S[s].surface == 1) {y2=S[s].surf[x];wo=S[s].z1;} // bottom surface top row			
+			if (S[s].surface == 2) {y1 =S[s].surf[x];wo=S[s].z2;} // bottom surface top row
+			
+			
+			float lookUpDown = -P.look * 6.2;
+			if (lookUpDown > SH) 
+			{
+				lookUpDown = SH;
+			}
+			float moveUpDown = (float)(P.z-wo) / (float)yo;
+			if (moveUpDown == 0) 
+			{
+				moveUpDown = 0.001;		
+			}
+				
+			int ys=y1-yo, ye=y2-yo;
+				
+			for (y = ys ; y < ye;y++)
+			{
+			//	for (x = -xo ; x < xo;x++)
+				{
+					float z = y+lookUpDown;
+					if (z == 0) 
+					{
+						z = 0.0001;
+					}
+					float fx = x2 / z * moveUpDown*tile;
+					float fy = feildOfView / z * moveUpDown*tile;
+					float rx=fx*M.sine[P.angle]-fy*M.cosine[P.angle]+(P.y/60.0*tile); // rotated texture x
+					float ry=fx*M.cosine[P.angle]+fy*M.sine[P.angle]-(P.x/60.0*tile); // rotated texture x
+					if (rx < 0) {rx = -rx+1;}
+					if (ry < 0) {ry = -ry+1;}			
+					
+					int st=S[s].st;
+					int pixel =(int)(Textures[st].h-((int)ry%Textures[st].h)-1)*3*Textures[st].w + ((int)rx%Textures[st].w)*3;
+					int r = Textures[st].name[pixel+0]; 
+					int g = Textures[st].name[pixel+1];
+					int b = Textures[st].name[pixel+2];					
+					drawPixel(x2+xo,y+yo,r,g,b);
+				}
+			}
 		}				
 	}
 }
@@ -499,10 +546,9 @@ void display()
  { 
  
   clearBackground();
-  //testTextures();
-  floors();
+  //testTextures();  
   movePlayer();
-  //draw3D(); 
+  draw3D(); 
 
 
   T.fr2=T.fr1;   
