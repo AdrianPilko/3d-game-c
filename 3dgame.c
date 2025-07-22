@@ -248,9 +248,9 @@ void drawWall(int x1, int x2, int b1, int b2, int t1, int t2,int s, int w, int f
 	// wall texture
 	int wt=W[w].wt;
 	float ht = 0;
-	float ht_step = (float)Textures[wt].w/(float)(x2-x1);
+	float ht_step = (float)Textures[wt].w*W[w].u/(float)(x2-x1);
 
-	
+	// hold diff in distance
 	int x,y;
 	int dyb = b2 - b1;
 	int dyt = t2 - t1;
@@ -274,7 +274,7 @@ void drawWall(int x1, int x2, int b1, int b2, int t1, int t2,int s, int w, int f
 		
 		// vertical wall texture
 		float vt = 0;
-		float vt_step = (float)Textures[wt].h/(float)(y2-y1);
+		float vt_step = (float)Textures[wt].h*W[w].v/(float)(y2-y1);
 			
 		if (y1 < 0) {vt-=vt_step*y1; y1 = 0;}
 		if (y2 < 0) {y2 = 0;}
@@ -290,10 +290,13 @@ void drawWall(int x1, int x2, int b1, int b2, int t1, int t2,int s, int w, int f
 			
 			for (y=y1;y <y2;y++)
 			{
-				int pixel =(int)(Textures[wt].h-vt-1)*3*Textures[wt].w + (int)ht*3;
-				int r = Textures[wt].name[pixel];
-				int g = Textures[wt].name[pixel+1];
-				int b = Textures[wt].name[pixel+2];
+				int pixel =(int)(Textures[wt].h-((int)vt%Textures[wt].h)-1)*3*Textures[wt].w + ((int)ht%Textures[wt].w)*3;
+				int r = Textures[wt].name[pixel]-W[w].shade; 
+				if (r < 0){ r =0;}
+				int g = Textures[wt].name[pixel+1]-W[w].shade;
+				if (g < 0){ g =0;}
+				int b = Textures[wt].name[pixel+2]-W[w].shade;
+				if (b < 0){ b =0;}
 				drawPixel(x,y,r,g,b);
 				vt+= vt_step;
 			}
