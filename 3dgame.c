@@ -243,6 +243,62 @@ void testTextures()
 	
 }
 
+void floors()
+{
+	int x,y;
+	int xo = SW / 2; // x offset
+	int yo = SH / 2; // y offset
+	float feildOfView =200.0;
+	float lookUpDown = -P.look * 2;
+	if (lookUpDown > SH) 
+	{
+		lookUpDown = SH;
+	}
+	float moveUpDown = P.z / 16.0;
+	if (moveUpDown == 0) 
+	{
+		moveUpDown = 0.001;		
+	}
+		
+	int ys=-yo, ye=-lookUpDown;
+	if (moveUpDown < 0)
+	{
+		ys=-lookUpDown, ye=yo+lookUpDown;		
+	}
+		
+	for (y = ys ; y < ye;y++)
+	{
+		for (x = -xo ; x < xo;x++)
+		{
+			float z = y+lookUpDown;
+			if (z == 0) 
+			{
+				z = 0.0001;
+			}
+			float fx = x / z * moveUpDown;
+			float fy = feildOfView / z * moveUpDown;
+			float rx=fx*M.sine[P.angle]-fy*M.cosine[P.angle]+(P.y/30.0); // rotated texture x
+			float ry=fx*M.cosine[P.angle]+fy*M.sine[P.angle]-(P.x/30.0); // rotated texture x
+			if (rx < 0) {rx = -rx+1;}
+			if (ry < 0) {ry = -ry+1;}			
+			
+			if (rx <=0 || ry <=0 || rx >=10 || ry >=10) 
+			{
+				continue;
+			}			
+			
+			if ((int)rx%2 == (int)ry%2)
+			{
+				drawPixel(x+xo,y+yo, 255,0,0);				
+			}
+			else
+			{
+				drawPixel(x+xo,y+yo, 0,255,0);				
+			}
+		}
+	}
+}
+
 void drawWall(int x1, int x2, int b1, int b2, int t1, int t2,int s, int w, int frontBack)
 {
 	// wall texture
@@ -444,8 +500,10 @@ void display()
  
   clearBackground();
   //testTextures();
+  floors();
   movePlayer();
-  draw3D(); 
+  //draw3D(); 
+
 
   T.fr2=T.fr1;   
   glutSwapBuffers(); 
