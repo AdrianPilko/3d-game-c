@@ -10,6 +10,12 @@
 // I didn't just copy it but followed the tutorial and wrote it. some bits I 
 // don't fully understand yet
 
+// Note by AP:
+// I make no apologies for this using standard C, not C++
+// oh C is so compact and cute compared to the Behemoth of C++ 
+// and ok you have todo everythhing yourself, but unless you're a prompt 
+// "engineer" you should be comfortable with that!!!
+
 //------------------------------------------------------------------------------
 //--------------------------Code By: 3DSage-------------------------------------
 //----------------Video tutorial on YouTube-3DSage------------------------------
@@ -38,11 +44,13 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <GL/glut.h> 
 
+
 #define res        1                        //0=160x120 1=360x240 4=640x480
-#define SW         400*res                  //screen width
-#define SH         300*res                  //screen height
+#define SW         200*res                  //screen width
+#define SH         200*res                  //screen height
 #define SW2        (SW/2)                   //half of screen width
 #define SH2        (SH/2)                   //half of screen height
 #define pixelScale 4/res                    //OpenGL pixel scale
@@ -409,12 +417,12 @@ void drawWall(int x1, int x2, int b1, int b2, int t1, int t2,int s, int w, int f
 					int g = Textures[st].name[pixel+1];
 					int b = Textures[st].name[pixel+2];					
 					drawPixel(x2+xo,y+yo,r,g,b);
+					
 				}
-			}
+			}			
 		}				
 	}
 }
-
 
 void draw3D()
 {	
@@ -425,11 +433,12 @@ void draw3D()
 	float COS=M.cosine[P.angle];
 	float SIN=M.sine[P.angle];
 	int cycles;
-	
+
 	// sort the walls in order for drawing using bubble sort
 	for (s = 0; s < numSect-1; s++)
 	{
-		for (w = 0; w < numSect-s-1;w++) 
+		//for (w = 0; w < numSect-s-1;w++) 
+		for (w = 0; w < numWall-s-1;w++) 
 		{
 			if (S[w].d < S[w+1].d)
 			{
@@ -439,6 +448,7 @@ void draw3D()
 			}
 		}
 	}
+
 	// create the points for wall based on players x and the angle
 	// its all based onthe "map"/wolrd moving not the player hence the 
 	
